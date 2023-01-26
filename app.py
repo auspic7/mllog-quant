@@ -1,6 +1,11 @@
 import pykis
 import yfinance as yf
+import pandas as pd
+from allocation import baa_aggressive
 from config import APP_KEY, APP_SECRET, CANO, ACNT_PRDT_CD
+from datetime import datetime
+
+market_codes = {'SPY': "AMS", 'EFA': "AMS", 'EEM': "AMS", 'AGG': "AMS", 'QQQ': "NAS", 'EEM': "AMS", 'EFA': "AMS", 'AGG': "AMS", 'TIP': "AMS", 'DBC': "AMS", 'BIL': "AMS", 'IEF': "NAS", 'TLT': "NAS", 'LQD': "AMS", 'AGG': "AMS", "TSLA": "NAS"}
 
 key_info = {		# KIS Developers 서비스 신청을 통해 발급받은 API key 정보
     "appkey": APP_KEY,
@@ -19,42 +24,24 @@ api = pykis.Api(domain_info=domain_info, key_info=key_info,
 stocks_os = api.get_os_stock_balance()
 print(stocks_os)
 
-# BAA-Aggressive 구현
-canary = ["SPY", "EFA", "EEM", "AGG"]
-offensive = ["QQQ", "EEM", "EFA", "AGG"]
-defensive = ["TIP", "DBC", "BIL", "IEF", "TLT", "LQD", "AGG"]
-tickers = canary + offensive + defensive
+asset_usd = 1000
+allocation_ratio = baa_aggressive(datetime.now())
 
-datas = yf.download(tickers, period="13mo", group_by="ticker")
+# 현재 얼로케이션을 파악
+current_allocation = api.get_os_stock_balance().loc[:,['보유수량']]
 
-# Momentum Score, 12MA Momentum 계산
-'''
-Calculate the “13612W” momentum of each asset. This is a multi-timeframe measure of momentum, calculated as follows:
-(12 * (p0 / p1 – 1)) + (4 * (p0 / p3 – 1)) + (2 * (p0 / p6 – 1)) + (p0 / p12 – 1)
-Where p0 = the price at today’s close, p1 = the price at the close of the previous month, etc.
-'''
-for ticker in tickers:
-    datas.loc[:, (ticker, "momentum_score")] = \
-        datas[ticker]["Adj Close"].pct_change(21) * 12 +\
-        datas[ticker]["Adj Close"].pct_change(63) * 4 +\
-        datas[ticker]["Adj Close"].pct_change(126) * 2 +\
-        datas[ticker]["Adj Close"].pct_change(252)
-    datas.loc[:, (ticker, "relative_momentum")] =\
-        datas[ticker]["Adj Close"][-1] / datas[ticker]["Adj Close"].mean()
+# 목표 얼로케이션을 파악
+allocation_goal = pd.DataFrame(data=
+    {"보유수량": [allocation_ratio[stock] * asset_usd // api.get_os_current_price(stock, market_codes[stock]) for stock in allocation_ratio.index], "목표비중": allocation_ratio.values}, index=allocation_ratio.index)
 
-momenta = datas.tail(1).loc[:, (tickers, ["Adj Close", "momentum_score",
-      "relative_momentum"])].stack().transpose() 
-print(momenta)
-momenta = momenta.droplevel(level=0, axis=1)
+diff = allocation_goal.sub(current_allocation, fill_value=0)
+print(diff)
 
-# If all canary assets have positive momentum, select from the offensive universe, otherwise select from the defensive universe.
-if (momenta.loc[canary]["momentum_score"] > 0).all():
-    print(f"Buy an aggressive: {momenta.loc[offensive]['relative_momentum'].idxmax()}")
-else:
-    '''
-    If selecting from the defensive universe, select the 3 assets with the highest relative momentum. 
-    If the relative momentum of the asset is less than that of US T-Bills (represented by ETF: BIL), instead place that portion of the portfolio in cash.
-    '''
-    top_defensives = momenta.loc[defensive].sort_values('relative_momentum', ascending=False).head(3)
-    print(f"Buy defensive(s): {top_defensives[top_defensives['relative_momentum'] > momenta.loc['BIL', 'relative_momentum']].index.tolist()}")
+# 매수/매도
+for stock in diff.loc[diff.loc[:,"보유수량"] < 0].index:
+    api.sell_os_stock(market_codes[stock], stock, int(abs(diff.loc[stock, "보유수량"])), round(api.get_os_current_price(stock, market_codes[stock]) * 0.99, 2))
+for stock in diff.loc[diff.loc[:,"보유수량"] > 0].index:
+    api.buy_os_stock(market_codes[stock], stock, int(abs(diff.loc[stock, "보유수량"])), round(api.get_os_current_price(stock, market_codes[stock]) * 1.01, 2))
 
+stocks_os = api.get_os_stock_balance()
+print(stocks_os)
