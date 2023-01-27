@@ -6,7 +6,7 @@ from config import APP_KEY, APP_SECRET, CANO, ACNT_PRDT_CD, VIRTUAL
 from datetime import datetime
 from kis import get_cash_balance
 
-market_codes = {'SPY': "AMS", 'EFA': "AMS", 'EEM': "AMS", 'AGG': "AMS", 'QQQ': "NAS", 'EEM': "AMS", 'EFA': "AMS", 'AGG': "AMS", 'TIP': "AMS", 'DBC': "AMS", 'BIL': "AMS", 'IEF': "NAS", 'TLT': "NAS", 'LQD': "AMS", 'AGG': "AMS", "TSLA": "NAS"}
+market_codes = {'SPY': "AMS", 'EFA': "AMS", 'EEM': "AMS", 'AGG': "AMS", 'QQQ': "NAS", 'EEM': "AMS", 'EFA': "AMS", 'AGG': "AMS", 'TIP': "AMS", 'DBC': "AMS", 'BIL': "AMS", 'IEF': "NAS", 'TLT': "NAS", 'LQD': "AMS", 'AGG': "AMS", "TSLA": "NAS", "QRFT": "AMS"}
 
 key_info = {		# KIS Developers 서비스 신청을 통해 발급받은 API key 정보
     "appkey": APP_KEY,
@@ -23,7 +23,6 @@ domain_info = pykis.DomainInfo(kind="virtual" if VIRTUAL else "real")
 api = pykis.Api(domain_info=domain_info, key_info=key_info,
                 account_info=account_info)
 stocks_os = api.get_os_stock_balance()
-print(stocks_os)
 
 # 현재 총 자산을 파악
 stock_usd = 0
@@ -38,7 +37,10 @@ print("현재 총 자산: ", asset_usd)
 allocation_ratio = baa_aggressive(datetime.now())
 
 # 현재 얼로케이션을 파악
-current_allocation = api.get_os_stock_balance().loc[:,['보유수량']]
+if len(stocks_os) > 0:
+    current_allocation = stocks_os.loc[:,['보유수량']]
+else:
+    current_allocation = pd.DataFrame(columns=["보유수량"])
 
 # 목표 얼로케이션을 파악
 allocation_goal = pd.DataFrame(data=
