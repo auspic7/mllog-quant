@@ -1,5 +1,4 @@
 import pykis
-import yfinance as yf
 import pandas as pd
 from allocation import baa_aggressive
 from config import APP_KEY, APP_SECRET, CANO, ACNT_PRDT_CD, VIRTUAL
