@@ -2,31 +2,55 @@ import pykis
 from pykis import APIRequestParameter
 
 def get_cash_balance(api):
-  """
-  구매 가능 현금(달러) 조회
-  return: 해당 계좌의 구매 가능한 현금(달러)
-  """
-  url_path = "/uapi/overseas-stock/v1/trading/inquire-present-balance"
-  is_virtual = api.domain.is_virtual()
-  tr_id = "VTRP6504R" if is_virtual else "CTRP6504R"
+    """
+    구매 가능 현금(달러) 조회
+    return: 해당 계좌의 구매 가능한 현금(달러)
+    """
+    url_path = "/uapi/overseas-stock/v1/trading/inquire-present-balance"
+    is_virtual = api.domain.is_virtual()
+    tr_id = "VTRP6504R" if is_virtual else "CTRP6504R"
 
-  if api.account is None:
-      msg = "계좌가 설정되지 않았습니다. set_account를 통해 계좌 정보를 설정해주세요."
-      raise RuntimeError(msg)
+    if api.account is None:
+        msg = "계좌가 설정되지 않았습니다. set_account를 통해 계좌 정보를 설정해주세요."
+        raise RuntimeError(msg)
 
-  params = {
-      "CANO": api.account.account_code,
-      "ACNT_PRDT_CD": api.account.product_code,
-      "WCRC_FRCR_DVSN_CD": "00",
-      "NATN_CD": "840",
-      "TR_MKET_CD": "00",
-      "INQR_DVSN_CD": "00",
-  }
+    params = {
+        "CANO": api.account.account_code,
+        "ACNT_PRDT_CD": api.account.product_code,
+        "WCRC_FRCR_DVSN_CD": "00",
+        "NATN_CD": "840",
+        "TR_MKET_CD": "00",
+        "INQR_DVSN_CD": "00",
+    }
 
-  req = APIRequestParameter(url_path, tr_id, params)
-  res = api._send_get_request(req)
+    req = APIRequestParameter(url_path, tr_id, params)
+    res = api._send_get_request(req)
 
-  return float(res.outputs[1][0]['frcr_dncl_amt_2']) if len(res.outputs[1]) > 0 else 0
+    return float(res.outputs[1][0]['frcr_dncl_amt_2']) if len(res.outputs[1]) > 0 else 0
+
+
+def get_total_balance(api):
+    url_path = "/uapi/overseas-stock/v1/trading/inquire-psamount"
+    is_virtual = api.domain.is_virtual()
+    tr_id = "VTRP6504R" if is_virtual else "TTTS3007R"
+
+    if api.account is None:
+        msg = "계좌가 설정되지 않았습니다. set_account를 통해 계좌 정보를 설정해주세요."
+        raise RuntimeError(msg)
+
+    params = {
+        "CANO": api.account.account_code,
+        "ACNT_PRDT_CD": api.account.product_code,
+        "OVRS_EXCG_CD": 'AMEX',
+        "OVRS_ORD_UNPR": "",
+        "ITEM_CD": "EFA",
+    }
+
+    req = APIRequestParameter(url_path, tr_id, params)
+    res = api._send_get_request(req)
+    
+    return float(res.outputs[0]['ovrs_ord_psbl_amt'])
+
 
 # import pykis
 # import yfinance as yf
@@ -76,4 +100,5 @@ def get_cash_balance(api):
 
 # req = APIRequestParameter(url_path, tr_id, params)
 # res = api._send_get_request(req)
-# print(res.outputs[1][0]['frcr_dncl_amt_2'])
+# print(res.outputs)
+# print(api.get_os_stock_balance())
